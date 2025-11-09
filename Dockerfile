@@ -23,7 +23,7 @@ WORKDIR /app
 # Copy requirements first for better Docker layer caching
 COPY requirements_runpod.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements_runpod.txt
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY docext/ ./docext/
