@@ -1,7 +1,9 @@
 # RunPod Serverless Worker Dockerfile for Document Extraction
 # Optimized for GPU inference with vLLM
 
-FROM runpod/pytorch:2.1.0-py3.10-cuda12.1.0-devel-ubuntu22.04
+# Use official RunPod PyTorch base image
+# Available images: https://github.com/runpod/containers
+FROM runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
