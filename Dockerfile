@@ -1,40 +1,50 @@
-FROM vllm/vllm-openai:v0.8.2 AS dev
+# RunPod Serverless Worker Dockerfile for Document Extraction
+# Optimized for GPU inference with vLLM
 
-# Install Python 3.11
-RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends python3.11 python3.11-venv python3-pip python3.11-dev && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+FROM runpod/pytorch:2.1.0-py3.10-cuda12.1.0-devel-ubuntu22.04
 
-# Ensure Python 3.11 is default
-RUN ln -sf /usr/bin/python3.11 /usr/bin/python
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
 
-ENV GRADIO_SERVER_PORT=7860
-ENV GRADIO_SERVER_NAME="0.0.0.0"
-EXPOSE 7860
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    poppler-utils \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
+# Set working directory
 WORKDIR /app
 
-# Create and activate virtual environment
-RUN python -m venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
-
-# Install dependencies
-COPY requirements.txt setup.py README.md /app/
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements.txt
+# Copy and install Python dependencies
+# Copy requirements first for better Docker layer caching
+COPY requirements_runpod.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements_runpod.txt
 
 # Copy application code
-COPY docext /app/docext
+COPY docext/ ./docext/
+COPY worker.py .
 
-# Install application
-RUN pip install --no-cache-dir -e .
+# Create directory for temporary files
+RUN mkdir -p /tmp/docext_temp
 
-# Install flash-attn separately
-RUN pip install --no-cache-dir flash-attn --no-build-isolation
+# Set environment variables with defaults
+ENV MODEL_NAME="Qwen/Qwen2.5-VL-3B-Instruct"
+ENV VLM_PORT="8000"
+ENV MAX_MODEL_LEN="15000"
+ENV GPU_MEMORY_UTIL="0.98"
+ENV MAX_NUM_IMGS="5"
+ENV API_KEY="EMPTY"
+ENV TMPDIR="/tmp/docext_temp"
 
-# Set working directory and entrypoint
-WORKDIR /app/
-RUN adduser --disabled-password --gecos '' --shell /bin/bash appuser
-USER appuser
-# Start API server with higher concurrency limit for better performance
-ENTRYPOINT ["/app/.venv/bin/python", "-m", "docext.app.app", "--no-share", "--ui_port", "7860", "--concurrency_limit", "10"]
+# Expose port for vLLM server (internal only)
+EXPOSE 8000
+
+# Health check (optional, useful for debugging)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/v1/models')" || exit 1
+
+# Run the worker
+CMD ["python", "-u", "worker.py"]
