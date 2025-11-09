@@ -36,4 +36,5 @@ RUN pip install --no-cache-dir flash-attn --no-build-isolation
 WORKDIR /app/
 RUN adduser --disabled-password --gecos '' --shell /bin/bash appuser
 USER appuser
-ENTRYPOINT ["/app/.venv/bin/python", "-m", "docext.app.app", "--no-share", "--ui_port", "7860"]
+# Start API server with higher concurrency limit for better performance
+ENTRYPOINT ["/app/.venv/bin/python", "-m", "docext.app.app", "--no-share", "--ui_port", "7860", "--concurrency_limit", "10"]
