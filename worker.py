@@ -1,69 +1,58 @@
 """
 RunPod Serverless Worker for Document Information Extraction
-Transforms the Gradio-based docext application into a serverless handler.
+Lightweight adapter that translates RunPod API requests to Gradio app calls.
 """
 
 import os
 import base64
 import tempfile
 import traceback
+import time
+import requests
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-import json
+from typing import Dict, List, Any
 
 import runpod
 from loguru import logger
-import pandas as pd
 
-# Import core extraction functionality
-from docext.core.extract import extract_information
-from docext.core.utils import validate_fields_and_tables, validate_file_paths
-from docext.core.vllm import VLLMServer
-
-# Global model server - initialized once at startup
-MODEL_SERVER: Optional[VLLMServer] = None
+# Configuration from environment
+GRADIO_PORT: int = 7860
+GRADIO_URL: str = f"http://localhost:{GRADIO_PORT}"
 MODEL_NAME: str = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-VL-3B-Instruct")
 VLM_PORT: int = int(os.getenv("VLM_PORT", "8000"))
 MAX_MODEL_LEN: int = int(os.getenv("MAX_MODEL_LEN", "15000"))
 GPU_MEMORY_UTIL: float = float(os.getenv("GPU_MEMORY_UTIL", "0.98"))
 MAX_NUM_IMGS: int = int(os.getenv("MAX_NUM_IMGS", "5"))
+MAX_STARTUP_WAIT: int = 120  # seconds to wait for Gradio startup
 
 
-def initialize_model():
+def wait_for_gradio():
     """
-    Initialize the VLM model server at startup.
-    This runs once when the worker starts, not per request.
+    Wait for Gradio app to be ready (should be started by Dockerfile CMD).
+    This runs once when the worker starts.
     """
-    global MODEL_SERVER
-    
     try:
-        logger.info(f"Initializing VLM server with model: {MODEL_NAME}")
+        logger.info(f"Waiting for Gradio app at {GRADIO_URL}...")
+        max_retries = MAX_STARTUP_WAIT // 5
         
-        # Set the VLM_MODEL_URL environment variable for the client
-        os.environ["VLM_MODEL_URL"] = f"http://0.0.0.0:{VLM_PORT}/v1"
-        os.environ["API_KEY"] = os.getenv("API_KEY", "EMPTY")
+        for i in range(max_retries):
+            try:
+                response = requests.get(f"{GRADIO_URL}/", timeout=2)
+                if response.status_code == 200:
+                    logger.info("✓ Gradio app is ready!")
+                    return True
+            except requests.exceptions.RequestException:
+                pass
+            time.sleep(5)
+            if i % 6 == 0:  # Log every 30 seconds
+                logger.info(f"Still waiting for Gradio... ({i*5}s/{MAX_STARTUP_WAIT}s)")
         
-        # Initialize and start the VLM server
-        MODEL_SERVER = VLLMServer(
-            model_name=f"hosted_vllm/{MODEL_NAME}",
-            host="0.0.0.0",
-            port=VLM_PORT,
-            max_model_len=MAX_MODEL_LEN,
-            gpu_memory_utilization=GPU_MEMORY_UTIL,
-            max_num_imgs=MAX_NUM_IMGS,
-            vllm_start_timeout=300,
-        )
-        
-        MODEL_SERVER.start_server()
-        MODEL_SERVER.wait_for_server(timeout=300)
-        
-        logger.info("VLM server initialized successfully")
-        return True
+        raise RuntimeError(f"Gradio app not ready after {MAX_STARTUP_WAIT}s")
         
     except Exception as e:
-        logger.error(f"Failed to initialize model: {str(e)}")
+        logger.error(f"Failed to connect to Gradio app: {str(e)}")
         logger.error(traceback.format_exc())
-        raise RuntimeError(f"Model initialization failed: {str(e)}")
+        raise RuntimeError(f"Gradio app initialization failed: {str(e)}")
 
 
 def decode_base64_files(files_data: List[Dict[str, str]]) -> List[str]:
@@ -202,9 +191,124 @@ def validate_input(job_input: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def dataframe_to_custom_dict(data: List[Dict]) -> dict:
+    """
+    Convert list of field/table dicts to Gradio DataFrame format.
+    
+    Format expected by Gradio API:
+    {
+        "headers": ["name", "type", "description"],
+        "data": [["invoice_number", "field", "Invoice number"], ...],
+        "metadata": None
+    }
+    """
+    if not data:
+        return {"headers": ["name", "type", "description"], "data": [], "metadata": None}
+    
+    headers = ["name", "type", "description"]
+    rows = []
+    
+    for item in data:
+        rows.append([
+            item.get("name", ""),
+            item.get("type", "field"),
+            item.get("description", "")
+        ])
+    
+    return {
+        "headers": headers,
+        "data": rows,
+        "metadata": None
+    }
+
+
+def dict_to_dataframe(d: dict) -> List[Dict]:
+    """Convert Gradio DataFrame dict format back to list of dicts."""
+    if not d or not d.get("data"):
+        return []
+    
+    headers = d.get("headers", [])
+    data = d.get("data", [])
+    
+    result = []
+    for row in data:
+        result.append(dict(zip(headers, row)))
+    
+    return result
+
+
+def call_gradio_api(files: List[str], fields: List[Dict], tables: List[Dict], max_img_size: int) -> tuple:
+    """
+    Call the Gradio app's API endpoint to perform extraction.
+    Following the official docext API format.
+    
+    Args:
+        files: List of file paths
+        fields: List of field definitions
+        tables: List of table definitions
+        max_img_size: Maximum image size
+        
+    Returns:
+        Tuple of (fields_list, tables_list)
+    """
+    try:
+        from gradio_client import Client, handle_file
+        
+        # Create Gradio client
+        client = Client(GRADIO_URL, auth=("admin", "admin"))
+        
+        # Convert files to Gradio file format
+        file_inputs = [handle_file(filepath) for filepath in files]
+        
+        # Combine fields and tables into the format expected by Gradio
+        fields_and_tables_data = []
+        for field in fields:
+            fields_and_tables_data.append({
+                "name": field["name"],
+                "type": "field",
+                "description": field.get("description", "")
+            })
+        
+        for table in tables:
+            fields_and_tables_data.append({
+                "name": table["name"],
+                "type": "table",
+                "description": table.get("description", "")
+            })
+        
+        # Convert to Gradio DataFrame format
+        fields_and_tables_dict = dataframe_to_custom_dict(fields_and_tables_data)
+        
+        logger.info(f"Calling Gradio API with {len(file_inputs)} files and {len(fields_and_tables_data)} fields/tables")
+        
+        # Call the Gradio API endpoint using the official format
+        result = client.predict(
+            file_inputs=file_inputs,
+            model_name=f"hosted_vllm/{MODEL_NAME}",
+            fields_and_tables=fields_and_tables_dict,
+            api_name="/extract_information"
+        )
+        
+        # Parse results - Gradio returns (fields_dict, tables_dict)
+        fields_dict, tables_dict = result
+        
+        # Convert back from DataFrame format to list of dicts
+        fields_list = dict_to_dataframe(fields_dict)
+        tables_list = dict_to_dataframe(tables_dict)
+        
+        logger.info(f"Extraction complete: {len(fields_list)} field results, {len(tables_list)} table results")
+        
+        return fields_list, tables_list
+        
+    except Exception as e:
+        logger.error(f"Gradio API call failed: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise
+
+
 def handler(job: Dict[str, Any]) -> Dict[str, Any]:
     """
-    RunPod handler function - processes document extraction requests.
+    RunPod handler function - translates RunPod requests to Gradio API calls.
     
     Args:
         job: RunPod job dictionary containing 'input' key with payload
@@ -225,31 +329,20 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         temp_files = decode_base64_files(validated_input["files"])
         logger.info(f"Decoded {len(temp_files)} files")
         
-        # Prepare fields and tables for extraction
-        fields_and_tables = {
-            "fields": validated_input["fields"],
-            "tables": validated_input["tables"],
-        }
-        
-        # Perform extraction
-        logger.info(f"Starting extraction with model: {validated_input['model_name']}")
-        fields_df, tables_df = extract_information(
-            file_inputs=temp_files,
-            model_name=validated_input["model_name"],
-            max_img_size=validated_input["max_img_size"],
-            fields_and_tables=fields_and_tables,
+        # Call Gradio API
+        logger.info(f"Calling Gradio API for extraction...")
+        fields_df, tables_df = call_gradio_api(
+            files=temp_files,
+            fields=validated_input["fields"],
+            tables=validated_input["tables"],
+            max_img_size=validated_input["max_img_size"]
         )
         
-        # Convert DataFrames to JSON-serializable format
-        fields_result = []
-        if not fields_df.empty:
-            fields_result = fields_df.to_dict(orient="records")
+        # Convert results to JSON format
+        fields_result = fields_df if isinstance(fields_df, list) else []
+        tables_result = tables_df if isinstance(tables_df, list) else []
         
-        tables_result = []
-        if not tables_df.empty:
-            tables_result = tables_df.to_dict(orient="records")
-        
-        logger.info(f"Extraction completed: {len(fields_result)} field records, {len(tables_result)} table records")
+        logger.info(f"Extraction completed: {len(fields_result)} fields, {len(tables_result)} tables")
         
         # Return successful result
         return {
@@ -294,8 +387,8 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
 if __name__ == "__main__":
     logger.info("Starting RunPod serverless worker for document extraction")
     
-    # Initialize model once at startup
-    initialize_model()
+    # Wait for Gradio app (started by Dockerfile CMD)
+    wait_for_gradio()
     
     # Start the serverless handler
     logger.info("Starting RunPod serverless handler")

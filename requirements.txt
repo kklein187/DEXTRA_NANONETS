@@ -23,8 +23,9 @@ Pillow
 # RunPod deployment (required for serverless)
 runpod>=1.7.0
 
-# UI/Development only (not needed for RunPod deployment)
+# UI/Development (required for both local and RunPod)
 gradio==5.23.2
+gradio_client>=0.10.0
 
 # Additional system dependencies may be required:
 # - poppler-utils (for pdf2image)
