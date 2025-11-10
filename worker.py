@@ -31,7 +31,7 @@ except ImportError:
     logger.warning("⚠️  torch not available - assuming CPU mode")
 
 # Configuration from environment
-GRADIO_PORT: int = 7860
+GRADIO_PORT: int = int(os.getenv("GRADIO_PORT", "7860"))
 GRADIO_URL: str = f"http://localhost:{GRADIO_PORT}"
 MODEL_NAME: str = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-VL-3B-Instruct")
 VLM_PORT: int = int(os.getenv("VLM_PORT", "8000"))
