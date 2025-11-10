@@ -60,7 +60,7 @@ def start_gradio():
             "--model_name", f"hosted_vllm/{MODEL_NAME}",
             "--vlm_server_host", "0.0.0.0",
             "--vlm_server_port", str(VLM_PORT),
-            "--ui_port", str(GRADIO_PORT),
+            "--server_port", str(GRADIO_PORT),  # ← FIXED: was --ui_port
             "--max_model_len", str(MAX_MODEL_LEN),
             "--gpu_memory_utilization", str(GPU_MEMORY_UTIL),
             "--max_num_imgs", str(MAX_NUM_IMGS),
