@@ -28,6 +28,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code
 COPY docext/ ./docext/
 COPY worker.py .
+COPY start_services.sh .
+
+# Make startup script executable
+RUN chmod +x start_services.sh
 
 # Create directory for temporary files
 RUN mkdir -p /tmp/docext_temp
@@ -38,11 +42,12 @@ ENV VLM_PORT="8000"
 ENV MAX_MODEL_LEN="15000"
 ENV GPU_MEMORY_UTIL="0.98"
 ENV MAX_NUM_IMGS="5"
+ENV MAX_STARTUP_WAIT="600"
 ENV API_KEY="EMPTY"
 ENV TMPDIR="/tmp/docext_temp"
 
 # Expose ports
 EXPOSE 7860 8000
 
-# Worker handles Gradio startup automatically
-CMD ["python", "-u", "worker.py"]
+# Start services: Gradio app (with vLLM) in background, then RunPod worker
+CMD ["./start_services.sh"]

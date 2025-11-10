@@ -24,9 +24,9 @@ VLM_PORT: int = int(os.getenv("VLM_PORT", "8000"))
 MAX_MODEL_LEN: int = int(os.getenv("MAX_MODEL_LEN", "15000"))
 GPU_MEMORY_UTIL: float = float(os.getenv("GPU_MEMORY_UTIL", "0.98"))
 MAX_NUM_IMGS: int = int(os.getenv("MAX_NUM_IMGS", "5"))
-MAX_STARTUP_WAIT: int = 300  # seconds to wait for Gradio startup (5 minutes for model loading)
+MAX_STARTUP_WAIT: int = int(os.getenv("MAX_STARTUP_WAIT", "600"))  # seconds to wait for Gradio startup (10 minutes for model loading)
 
-# Global process handle
+# Global process handle for Gradio
 GRADIO_PROCESS: Optional[subprocess.Popen] = None
 
 
@@ -39,10 +39,50 @@ def is_gradio_running() -> bool:
         return False
 
 
-def start_gradio():
+def start_gradio_process():
     """
-    Start the Gradio app as a background process.
-    Returns True if started successfully or already running.
+    Start the Gradio app as a subprocess.
+    This is called if Gradio is not already running (fallback mechanism).
+    """
+    global GRADIO_PROCESS
+    
+    logger.info("Starting Gradio app as subprocess...")
+    logger.info(f"Model: {MODEL_NAME}")
+    
+    cmd = [
+        "python", "-m", "docext.app.app",
+        "--model_name", f"hosted_vllm/{MODEL_NAME}",
+        "--vlm_server_host", "0.0.0.0",
+        "--vlm_server_port", str(VLM_PORT),
+        "--server_port", str(GRADIO_PORT),
+        "--max_model_len", str(MAX_MODEL_LEN),
+        "--gpu_memory_utilization", str(GPU_MEMORY_UTIL),
+        "--max_num_imgs", str(MAX_NUM_IMGS),
+    ]
+    
+    logger.info(f"Command: {' '.join(cmd)}")
+    
+    try:
+        GRADIO_PROCESS = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1
+        )
+        logger.info(f"Gradio process started with PID: {GRADIO_PROCESS.pid}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to start Gradio process: {str(e)}")
+        return False
+
+
+def wait_for_gradio():
+    """
+    Wait for Gradio app to be ready.
+    First checks if already running (started by start_services.sh).
+    If not, attempts to start it as a subprocess (fallback).
+    Returns True if ready, raises RuntimeError if unable to start.
     """
     global GRADIO_PROCESS
     
@@ -51,65 +91,49 @@ def start_gradio():
         logger.info("✓ Gradio app is already running!")
         return True
     
-    try:
-        logger.info(f"Starting Gradio app with model: {MODEL_NAME}")
+    logger.warning("Gradio app not detected.")
+    logger.info("Attempting to start Gradio app...")
+    
+    # Try to start Gradio as subprocess
+    if not start_gradio_process():
+        raise RuntimeError("Failed to start Gradio process")
+    
+    # Wait for Gradio to become ready
+    logger.info(f"Waiting for Gradio to start (timeout: {MAX_STARTUP_WAIT}s)...")
+    logger.info("This can take 5-10 minutes for model loading...")
+    
+    max_retries = MAX_STARTUP_WAIT // 5
+    
+    for i in range(max_retries):
+        # Check if process died
+        if GRADIO_PROCESS and GRADIO_PROCESS.poll() is not None:
+            # Process exited unexpectedly
+            stdout, stderr = GRADIO_PROCESS.communicate(timeout=1)
+            logger.error("Gradio process exited unexpectedly!")
+            logger.error(f"Exit code: {GRADIO_PROCESS.returncode}")
+            logger.error(f"STDOUT: {stdout}")
+            logger.error(f"STDERR: {stderr}")
+            raise RuntimeError(
+                f"Gradio process died during startup (exit code: {GRADIO_PROCESS.returncode})"
+            )
         
-        # Command to start the Gradio app
-        cmd = [
-            "python", "-m", "docext.app.app",
-            "--model_name", f"hosted_vllm/{MODEL_NAME}",
-            "--vlm_server_host", "0.0.0.0",
-            "--vlm_server_port", str(VLM_PORT),
-            "--server_port", str(GRADIO_PORT),  # ← FIXED: was --ui_port
-            "--max_model_len", str(MAX_MODEL_LEN),
-            "--gpu_memory_utilization", str(GPU_MEMORY_UTIL),
-            "--max_num_imgs", str(MAX_NUM_IMGS),
-        ]
+        # Check if Gradio is responding
+        try:
+            response = requests.get(f"{GRADIO_URL}/", timeout=5)
+            if response.status_code == 200:
+                logger.info("✓ Gradio app is ready!")
+                return True
+        except requests.exceptions.RequestException:
+            pass
         
-        # Start the Gradio process
-        logger.info(f"Command: {' '.join(cmd)}")
-        GRADIO_PROCESS = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        
-        logger.info(f"Gradio process started with PID: {GRADIO_PROCESS.pid}")
-        
-        # Wait for Gradio to be ready
-        logger.info(f"Waiting for Gradio to start (this can take 3-5 minutes for model loading)...")
-        max_retries = MAX_STARTUP_WAIT // 5
-        
-        for i in range(max_retries):
-            try:
-                response = requests.get(f"{GRADIO_URL}/", timeout=5)
-                if response.status_code == 200:
-                    logger.info("✓ Gradio app is ready!")
-                    return True
-            except requests.exceptions.RequestException:
-                pass
-            
-            # Check if process died
-            if GRADIO_PROCESS.poll() is not None:
-                stdout, stderr = GRADIO_PROCESS.communicate()
-                logger.error(f"Gradio process exited unexpectedly!")
-                logger.error(f"STDOUT: {stdout[-1000:]}")  # Last 1000 chars
-                logger.error(f"STDERR: {stderr[-1000:]}")
-                raise RuntimeError("Gradio process died during startup")
-            
-            time.sleep(5)
-            if i % 6 == 0:  # Log every 30 seconds
-                logger.info(f"Still waiting for Gradio... ({i*5}s/{MAX_STARTUP_WAIT}s)")
-        
-        raise RuntimeError(f"Gradio app not ready after {MAX_STARTUP_WAIT}s")
-        
-    except Exception as e:
-        logger.error(f"Failed to start Gradio app: {str(e)}")
-        logger.error(traceback.format_exc())
-        if GRADIO_PROCESS:
-            GRADIO_PROCESS.terminate()
-        raise RuntimeError(f"Gradio app initialization failed: {str(e)}")
+        time.sleep(5)
+        if i % 6 == 0:  # Log every 30 seconds
+            logger.info(f"Still waiting for Gradio... ({i*5}s/{MAX_STARTUP_WAIT}s)")
+    
+    raise RuntimeError(
+        f"Gradio app not ready after {MAX_STARTUP_WAIT}s. "
+        "Check logs for errors."
+    )
 
 
 def decode_base64_files(files_data: List[Dict[str, str]]) -> List[str]:
@@ -444,8 +468,8 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
 if __name__ == "__main__":
     logger.info("Starting RunPod serverless worker for document extraction")
     
-    # Start Gradio app (or verify it's running)
-    start_gradio()
+    # Wait for Gradio app to be ready (should be started by start_services.sh)
+    wait_for_gradio()
     
     # Start the serverless handler
     logger.info("Starting RunPod serverless handler")
