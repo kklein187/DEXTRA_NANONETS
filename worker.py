@@ -16,6 +16,20 @@ from typing import Dict, List, Any, Optional
 import runpod
 from loguru import logger
 
+# Check CUDA availability
+try:
+    import torch
+    CUDA_AVAILABLE = torch.cuda.is_available()
+    if CUDA_AVAILABLE:
+        GPU_COUNT = torch.cuda.device_count()
+        GPU_NAME = torch.cuda.get_device_name(0)
+        logger.info(f"✓ CUDA available: {GPU_COUNT} GPU(s) - {GPU_NAME}")
+    else:
+        logger.warning("⚠️  CUDA not available - will run on CPU (slow)")
+except ImportError:
+    CUDA_AVAILABLE = False
+    logger.warning("⚠️  torch not available - assuming CPU mode")
+
 # Configuration from environment
 GRADIO_PORT: int = 7860
 GRADIO_URL: str = f"http://localhost:{GRADIO_PORT}"
@@ -25,6 +39,7 @@ MAX_MODEL_LEN: int = int(os.getenv("MAX_MODEL_LEN", "15000"))
 GPU_MEMORY_UTIL: float = float(os.getenv("GPU_MEMORY_UTIL", "0.98"))
 MAX_NUM_IMGS: int = int(os.getenv("MAX_NUM_IMGS", "5"))
 MAX_STARTUP_WAIT: int = int(os.getenv("MAX_STARTUP_WAIT", "600"))  # seconds to wait for Gradio startup (10 minutes for model loading)
+VLLM_START_TIMEOUT: int = int(os.getenv("VLLM_START_TIMEOUT", "600"))  # vLLM model loading timeout
 
 # Global process handle for Gradio
 GRADIO_PROCESS: Optional[subprocess.Popen] = None
@@ -48,6 +63,7 @@ def start_gradio_process():
     
     logger.info("Starting Gradio app as subprocess...")
     logger.info(f"Model: {MODEL_NAME}")
+    logger.info(f"Device: {'GPU' if CUDA_AVAILABLE else 'CPU'}")
     
     cmd = [
         "python", "-m", "docext.app.app",
@@ -56,9 +72,17 @@ def start_gradio_process():
         "--vlm_server_port", str(VLM_PORT),
         "--server_port", str(GRADIO_PORT),
         "--max_model_len", str(MAX_MODEL_LEN),
-        "--gpu_memory_utilization", str(GPU_MEMORY_UTIL),
         "--max_num_imgs", str(MAX_NUM_IMGS),
+        "--vllm_start_timeout", str(VLLM_START_TIMEOUT),
     ]
+    
+    # Only add GPU-specific parameters if CUDA is available
+    if CUDA_AVAILABLE:
+        cmd.extend([
+            "--gpu_memory_utilization", str(GPU_MEMORY_UTIL),
+        ])
+    else:
+        logger.warning("CPU mode: GPU parameters skipped")
     
     logger.info(f"Command: {' '.join(cmd)}")
     

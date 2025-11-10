@@ -8,6 +8,11 @@ echo "========================================="
 echo "Starting Document Extraction Services"
 echo "========================================="
 
+# Clean up any problematic environment variables that might interfere with ZMQ/vLLM
+unset ZMQ_IO_THREADS 2>/dev/null || true
+unset ZEROMQ_IO_THREADS 2>/dev/null || true
+unset OMP_NUM_THREADS 2>/dev/null || true
+
 # Configuration from environment variables
 MODEL_NAME="${MODEL_NAME:-Qwen/Qwen2.5-VL-3B-Instruct}"
 VLM_PORT="${VLM_PORT:-8000}"
@@ -15,6 +20,7 @@ GRADIO_PORT="${GRADIO_PORT:-7860}"
 MAX_MODEL_LEN="${MAX_MODEL_LEN:-15000}"
 GPU_MEMORY_UTIL="${GPU_MEMORY_UTIL:-0.98}"
 MAX_NUM_IMGS="${MAX_NUM_IMGS:-5}"
+VLLM_START_TIMEOUT="${VLLM_START_TIMEOUT:-600}"
 
 echo "Configuration:"
 echo "  Model: $MODEL_NAME"
@@ -34,6 +40,7 @@ python -m docext.app.app \
     --max_model_len "$MAX_MODEL_LEN" \
     --gpu_memory_utilization "$GPU_MEMORY_UTIL" \
     --max_num_imgs "$MAX_NUM_IMGS" \
+    --vllm_start_timeout "$VLLM_START_TIMEOUT" \
     > /tmp/gradio.log 2>&1 &
 
 GRADIO_PID=$!
