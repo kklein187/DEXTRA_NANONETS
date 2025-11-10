@@ -17,7 +17,7 @@ import runpod
 from loguru import logger
 
 # Configuration from environment
-GRADIO_PORT: int = 7860
+GRADIO_PORT: int = int(os.getenv("GRADIO_PORT", "7860"))
 GRADIO_URL: str = f"http://localhost:{GRADIO_PORT}"
 MODEL_NAME: str = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-VL-3B-Instruct")
 VLM_PORT: int = int(os.getenv("VLM_PORT", "8000"))
@@ -25,6 +25,7 @@ MAX_MODEL_LEN: int = int(os.getenv("MAX_MODEL_LEN", "15000"))
 GPU_MEMORY_UTIL: float = float(os.getenv("GPU_MEMORY_UTIL", "0.98"))
 MAX_NUM_IMGS: int = int(os.getenv("MAX_NUM_IMGS", "5"))
 MAX_STARTUP_WAIT: int = int(os.getenv("MAX_STARTUP_WAIT", "600"))  # seconds to wait for Gradio startup (10 minutes for model loading)
+VLLM_START_TIMEOUT: int = int(os.getenv("VLLM_START_TIMEOUT", "600"))  # vLLM model loading timeout
 
 # Global process handle for Gradio
 GRADIO_PROCESS: Optional[subprocess.Popen] = None
@@ -58,6 +59,7 @@ def start_gradio_process():
         "--max_model_len", str(MAX_MODEL_LEN),
         "--gpu_memory_utilization", str(GPU_MEMORY_UTIL),
         "--max_num_imgs", str(MAX_NUM_IMGS),
+        "--vllm_start_timeout", str(VLLM_START_TIMEOUT),
     ]
     
     logger.info(f"Command: {' '.join(cmd)}")

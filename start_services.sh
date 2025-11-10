@@ -15,6 +15,7 @@ GRADIO_PORT="${GRADIO_PORT:-7860}"
 MAX_MODEL_LEN="${MAX_MODEL_LEN:-15000}"
 GPU_MEMORY_UTIL="${GPU_MEMORY_UTIL:-0.98}"
 MAX_NUM_IMGS="${MAX_NUM_IMGS:-5}"
+VLLM_START_TIMEOUT="${VLLM_START_TIMEOUT:-600}"
 
 echo "Configuration:"
 echo "  Model: $MODEL_NAME"
@@ -34,6 +35,7 @@ python -m docext.app.app \
     --max_model_len "$MAX_MODEL_LEN" \
     --gpu_memory_utilization "$GPU_MEMORY_UTIL" \
     --max_num_imgs "$MAX_NUM_IMGS" \
+    --vllm_start_timeout "$VLLM_START_TIMEOUT" \
     > /tmp/gradio.log 2>&1 &
 
 GRADIO_PID=$!
