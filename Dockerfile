@@ -41,21 +41,8 @@ ENV MAX_NUM_IMGS="5"
 ENV API_KEY="EMPTY"
 ENV TMPDIR="/tmp/docext_temp"
 
-# Expose port for vLLM server (internal only)
-EXPOSE 8000
+# Expose ports
+EXPOSE 7860 8000
 
-# Health check (optional, useful for debugging)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/v1/models')" || exit 1
-
-# Start both Gradio app and worker
-# Gradio runs in background, worker starts after 60s delay
-CMD python -m docext.app.app \
-      --model_name hosted_vllm/${MODEL_NAME} \
-      --vlm_server_host 0.0.0.0 \
-      --vlm_server_port ${VLM_PORT} \
-      --ui_port 7860 \
-      --max_model_len ${MAX_MODEL_LEN} \
-      --gpu_memory_utilization ${GPU_MEMORY_UTIL} \
-      --max_num_imgs ${MAX_NUM_IMGS} & \
-    sleep 60 && python -u worker.py
+# Worker handles Gradio startup automatically
+CMD ["python", "-u", "worker.py"]
