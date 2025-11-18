@@ -1,0 +1,77 @@
+name: Docker Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        dockerfile: [Dockerfile, Dockerfile.gpu]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ matrix.dockerfile }}-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-${{ matrix.dockerfile }}-
+    
+    - name: Build Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: ./${{ matrix.dockerfile }}
+        push: false
+        tags: docstrange:test
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+    
+    - name: Move cache
+      run: |
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+    
+    - name: Test Docker image
+      run: |
+        # Start container
+        docker run -d -p 8000:8000 --name docstrange-test docstrange:test
+        
+        # Wait for container to be ready
+        timeout 60 bash -c 'until curl -f http://localhost:8000/api/health; do sleep 2; done'
+        
+        # Test health endpoint
+        curl -f http://localhost:8000/api/health
+        
+        # Test system info endpoint
+        curl -f http://localhost:8000/api/system-info
+        
+        # Stop container
+        docker stop docstrange-test
+        docker rm docstrange-test
+    
+    - name: Scan for vulnerabilities
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: docstrange:test
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'

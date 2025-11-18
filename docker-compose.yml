@@ -1,0 +1,99 @@
+services:
+  # Cloud mode service (CPU only, uses Nanonets cloud API)
+  docstrange-cloud:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: docstrange-cloud
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Optional: Set your Nanonets API key for cloud processing
+      - NANONETS_API_KEY=${NANONETS_API_KEY:-}
+      # Flask configuration
+      - FLASK_ENV=production
+      - FLASK_APP=docstrange.web_app
+    volumes:
+      # Persist cache and models
+      - docstrange-cache:/root/.cache
+      - docstrange-data:/root/.docstrange
+      # Optional: Mount local directories for uploads/outputs
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - docstrange-network
+    # Resource limits for cloud mode (CPU only)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # GPU mode service (requires NVIDIA GPU and nvidia-docker)
+  docstrange-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile.gpu
+    container_name: docstrange-gpu
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      # Optional: Set your Nanonets API key (though GPU mode is fully local)
+      - NANONETS_API_KEY=${NANONETS_API_KEY:-}
+      # Flask configuration
+      - FLASK_ENV=production
+      - FLASK_APP=docstrange.web_app
+      # Force GPU mode
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      # Persist cache and models (important for GPU models which are large)
+      - docstrange-gpu-cache:/root/.cache
+      - docstrange-gpu-data:/root/.docstrange
+      # Optional: Mount local directories for uploads/outputs
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s  # GPU models take longer to download
+    networks:
+      - docstrange-network
+    # Enable GPU access
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # Uncomment if using older docker-compose (< 1.28.0)
+    # runtime: nvidia
+    profiles:
+      - gpu  # Only start with: docker-compose --profile gpu up
+
+volumes:
+  docstrange-cache:
+    driver: local
+  docstrange-data:
+    driver: local
+  docstrange-gpu-cache:
+    driver: local
+  docstrange-gpu-data:
+    driver: local
+
+networks:
+  docstrange-network:
+    driver: bridge
