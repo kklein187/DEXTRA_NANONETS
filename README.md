@@ -1,5 +1,12 @@
 ![DocStrange Banner](https://public-vlms.s3.us-west-2.amazonaws.com/logo3.png)
 
+samplerqus: curl -X POST http://localhost:8000/extract \
+  -F "file=@/path/to/invoice.pdf" \
+  -F 'json_schema={"invoice_number": "string", "date": "string", "total": "number", "vendor": "string", "line_items": [{"description": "string", "amount": "number"}]}' \
+  -F "custom_instructions=Extract all fields accurately. Use ISO date format for dates." \
+  -F "output_type=specified-json"
+
+
 # <img src="https://public-vlms.s3.us-west-2.amazonaws.com/docstrange_logo.svg" alt="DocStrange" width="32" style="vertical-align: middle; margin-right: 8px;">  DocStrange
 
 [![PyPI version](https://badge.fury.io/py/docstrange.svg?v=2)](https://badge.fury.io/py/docstrange)
