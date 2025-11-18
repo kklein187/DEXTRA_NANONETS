@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docstrange Data Extraction</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .main-header {
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 16px 32px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header-logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .header-logo {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+        .header-logo-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .header-center {
+            flex: 1;
+            text-align: center;
+        }
+        .header-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1f2937;
+            margin: 0 0 4px 0;
+        }
+        .header-title .blue-text {
+            color: #6366f1;
+        }
+        .header-subtitle {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 0;
+        }
+        .by-nanonets {
+            font-size: 11px;
+            color: #6b7280;
+            text-decoration: none;
+            display: block;
+            margin-top: 2px;
+        }
+        .header-spacer {
+            width: 200px; /* To balance the layout */
+        }
+        /* Responsive App Container */
+        .app-container {
+            display: flex;
+            padding-top: 120px; /* Account for fixed header */
+            min-height: calc(100vh - 120px);
+            transition: all 0.3s ease;
+        }
+        
+        .left-pane {
+            flex: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 48px 32px;
+            text-align: center;
+            transition: all 0.3s ease;
+            overflow-y: auto;
+        }
+        
+        .left-pane.with-results {
+            flex: 0 0 40%;
+            max-width: none;
+            margin: 0;
+            padding: 24px;
+        }
+        
+        .right-pane {
+            flex: 0 0 60%;
+            display: none;
+            flex-direction: column;
+            border-left: 1px solid #e5e7eb;
+            overflow-y: auto;
+            background: white;
+        }
+        
+        .right-pane.active {
+            display: flex;
+        }
+        
+        /* Small document preview in left pane */
+        .left-pane-preview {
+            display: none;
+            margin: 24px 0;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .left-pane-preview.active {
+            display: block;
+        }
+        
+        .left-pane-preview h4 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .left-pane-preview-content {
+            font-size: 12px;
+            color: #6b7280;
+            max-height: 100px;
+            overflow: hidden;
+        }
+        .upload-section-new {
+            background: #f8faff;
+            border: 2px dashed #cbd5e1;
+            border-radius: 16px;
+            padding: 64px 48px;
+            text-align: center;
+            margin-bottom: 48px;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .upload-section-new:hover {
+            border-color: #6366f1;
+            background: #f1f5ff;
+        }
+        .upload-icon-new {
+            width: 80px;
+            height: 80px;
+            background: #e5e7eb;
+            border-radius: 12px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .upload-text-new {
+            font-size: 18px;
+            color: #374151;
+            margin: 0;
+            font-weight: 500;
+        }
+        .sign-in-btn {
+            background: #6366f1;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 16px 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .format-section {
+            margin-bottom: 48px;
+        }
+        .format-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .use-default-btn {
+            background: #f3f4f6;
+            color: #6b7280;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .format-grid {
+            display: flex;
+            flex-direction: row;
+            gap: 12px;
+            margin-bottom: 32px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .format-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+            flex: 1;
+            min-width: 140px;
+            max-width: 160px;
+        }
+        .format-card:hover {
+            border-color: #6366f1;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+        }
+        .format-card.selected {
+            border-color: #6366f1;
+            background: #f8faff;
+        }
+        .format-icon {
+            width: 32px;
+            height: 32px;
+            margin: 0 auto 12px;
+            background: #f3f4f6;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .format-name {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+        .format-desc {
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .extract-btn {
+            background: #6366f1;
+            color: white;
+            padding: 14px 40px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 64px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+        }
+        .extract-btn:hover {
+            background: #5856eb;
+            box-shadow: 0 4px 8px rgba(99, 102, 241, 0.3);
+            transform: translateY(-1px);
+        }
+        .extract-btn:active {
+            transform: translateY(0);
+        }
+        .processing-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+            font-size: 16px;
+        }
+        
+        /* Markdown rendering styles */
+        .extracted-content h1,
+        .extracted-content h2,
+        .extracted-content h3,
+        .extracted-content h4,
+        .extracted-content h5,
+        .extracted-content h6 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+        .extracted-content h1 { font-size: 28px; }
+        .extracted-content h2 { font-size: 24px; }
+        .extracted-content h3 { font-size: 20px; }
+        .extracted-content h4 { font-size: 18px; }
+        .extracted-content h5 { font-size: 16px; }
+        .extracted-content h6 { font-size: 14px; }
+        
+        .extracted-content p {
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+        
+        .extracted-content ul,
+        .extracted-content ol {
+            margin-bottom: 16px;
+            padding-left: 24px;
+        }
+        
+        .extracted-content li {
+            margin-bottom: 8px;
+        }
+        
+        .extracted-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 16px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .extracted-content th,
+        .extracted-content td {
+            border: 1px solid #e5e7eb;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        
+        .extracted-content th {
+            background-color: #f9fafb;
+            font-weight: 600;
+        }
+        
+        .extracted-content blockquote {
+            border-left: 4px solid #6366f1;
+            padding-left: 16px;
+            margin: 16px 0;
+            font-style: italic;
+            color: #6b7280;
+        }
+        
+        .extracted-content code {
+            background-color: #f3f4f6;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+        }
+        
+        .extracted-content pre {
+            background-color: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin-bottom: 16px;
+        }
+        
+        .extracted-content pre code {
+            background: none;
+            padding: 0;
+        }
+        .footer-sections {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 48px;
+            padding: 48px 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer-section h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 16px;
+        }
+        .footer-section p {
+            color: #6b7280;
+            line-height: 1.6;
+        }
+        .footer-bottom {
+            text-align: center;
+            padding: 24px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        
+        /* Results Screen Styles */
+        .results-screen {
+            display: none;
+        }
+        
+        .results-header {
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 16px 32px;
+        }
+        
+        .results-header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .back-btn {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #374151;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .back-btn:hover {
+            background: #e5e7eb;
+        }
+        
+        .results-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0;
+        }
+        
+        .results-meta {
+            display: flex;
+            gap: 24px;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        
+        .results-content-wrapper {
+            display: flex;
+            height: calc(100vh - 80px);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .document-preview-section {
+            flex: 0 0 40%;
+            padding: 24px;
+            background: #f8f9fa;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            height: 100%;
+        }
+        
+        .upload-new-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-bottom: 16px;
+            transition: background-color 0.2s;
+        }
+        
+        .upload-new-btn:hover {
+            background: #5856eb;
+        }
+        
+        .document-preview-container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            height: 100%;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .document-preview {
+            height: 100%;
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f9fafb;
+        }
+        
+        .preview-placeholder {
+            text-align: center;
+        }
+        
+        .document-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .results-output-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            border-bottom: 1px solid #e5e7eb;
+            background: white;
+        }
+        
+        .output-tabs {
+            display: flex;
+            gap: 1px;
+            background: #f3f4f6;
+            border-radius: 6px;
+            padding: 2px;
+        }
+        
+        .output-tab {
+            background: transparent;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        
+        .output-tab.active {
+            background: white;
+            color: #1f2937;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+        
+        .output-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            background: #f9fafb;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .action-btn:hover {
+            background: #f3f4f6;
+        }
+        
+        .output-content {
+            flex: 1;
+            overflow: auto;
+        }
+        
+        .output-panel {
+            display: none;
+            padding: 24px;
+            height: 100%;
+        }
+        
+        .output-panel.active {
+            display: block;
+        }
+        
+        .page-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0 0 24px 0;
+        }
+        
+        .extracted-content {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+            color: #374151;
+        }
+        
+        .raw-output {
+            background: #f8f9fa;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            color: #374151;
+            height: calc(100% - 32px);
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="main-header">
+        <div class="header-logo-section">
+            <img src="{{ url_for('static_files', filename='logo_clean.png') }}" alt="DocStrange" class="header-logo">
+            <div>
+                <div class="header-logo-text">Docstrange</div>
+                <a href="#" class="by-nanonets">by Nanonets</a>
+            </div>
+        </div>
+        <div class="header-center">
+            <div class="header-title">Docstrange <span class="blue-text">Data Extraction</span></div>
+            <p class="header-subtitle">Extract structured data from your documents. Free 10,000 docs processing per month</p>
+        </div>
+        <div class="header-spacer"></div>
+    </header>
+
+    <!-- App Container -->
+    <div class="app-container">
+        <!-- Left Pane -->
+        <div class="left-pane" id="leftPane">
+        
+        <!-- Upload Area -->
+        <div class="upload-section-new" id="uploadArea">
+            <div class="upload-icon-new">
+                <svg width="24" height="24" fill="#9ca3af" viewBox="0 0 24 24">
+                    <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+            </div>
+            <p class="upload-text-new">Drop your document here or browse files</p>
+            <input type="file" id="fileInput" accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.jpg,.jpeg,.png,.bmp,.tiff,.html,.csv,.txt" style="display: none;">
+        </div>
+
+        <!-- Document Preview in Left Pane -->
+        <div class="left-pane-preview" id="leftPanePreview">
+            <h4>Document Preview</h4>
+            <div class="left-pane-preview-content" id="leftPanePreviewContent">
+                No document selected
+            </div>
+        </div>
+
+        <!-- Extract Button -->
+        <div style="text-align: center; margin: 24px 0;">
+            <button class="extract-btn" id="extractBtn">Extract Content</button>
+        </div>
+
+        <!-- Format Selection -->
+        <div>
+            <div class="format-title">
+                Select Output Format
+                    </div>
+            
+            <div class="format-grid">
+                <div class="format-card" data-format="json">
+                    <div class="format-icon">📄</div>
+                    <div class="format-name">Flat JSON</div>
+                    <div class="format-desc">Structured JSON with key-valu...</div>
+                </div>
+                
+                <div class="format-card selected" data-format="markdown">
+                    <div class="format-icon">Md</div>
+                    <div class="format-name">Markdown</div>
+                    <div class="format-desc">Formatted text with headers & t...</div>
+                </div>
+                
+                <div class="format-card" data-format="csv">
+                    <div class="format-icon">🖨️</div>
+                    <div class="format-name">CSV / Excel</div>
+                    <div class="format-desc">Spreadsheet-compatible tables</div>
+                </div>
+                
+                <div class="format-card" data-format="html">
+                    <div class="format-icon">📰</div>
+                    <div class="format-name">HTML</div>
+                    <div class="format-desc">Web-ready format with styling</div>
+                </div>
+                
+                <div class="format-card" data-format="text">
+                    <div class="format-icon">📝</div>
+                    <div class="format-name">Text</div>
+                    <div class="format-desc">Plain text content extraction</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Pane -->
+    <div class="right-pane" id="rightPane">
+        <div class="output-header">
+            <div class="output-tabs">
+                <button class="output-tab active" data-tab="preview" id="previewTabBtn">Preview</button>
+                <button class="output-tab" data-tab="raw" id="rawTabBtn">Raw</button>
+            </div>
+            <div class="output-actions">
+                <button class="action-btn" id="copyBtn" title="Copy">
+                    <span>📋</span>
+                </button>
+                <button class="action-btn" id="downloadBtn" title="Download">
+                    <span>⬇️</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="output-content">
+            <div class="output-panel active" id="previewPanel">
+                <div class="page-header">
+                    <h2 id="pageTitle">Processing...</h2>
+                </div>
+                <div class="extracted-content" id="extractedContent">
+                    <div class="processing-message">🔄 Processing your document...</div>
+                </div>
+            </div>
+            <div class="output-panel" id="rawPanel">
+                <pre class="raw-output" id="rawOutput">Processing...</pre>
+            </div>
+        </div>
+    </div>
+</div>
+    
+    <!-- Results Screen -->
+    <div class="results-screen" id="resultsScreen" style="display: none;">
+        <!-- Results Header -->
+        <header class="results-header">
+            <div class="results-header-content">
+                <button class="back-btn" id="backToUpload">
+                    <span>←</span> Back to Upload
+                </button>
+                <h1>Extraction Results</h1>
+                <div class="results-meta">
+                    <span id="fileTypeDisplay">Type: pdf</span>
+                    <span id="pagesDisplay">Pages: 1</span>
+                    <span id="timeDisplay">Time: 38.78s</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Results Content -->
+        <div class="results-content-wrapper">
+            <!-- Document Preview Section -->
+            <div class="document-preview-section">
+                <button class="upload-new-btn" id="uploadNewBtn">📤 Upload New File</button>
+                <div class="document-preview-container">
+                    <div class="document-preview" id="documentPreview">
+                        <!-- Document preview will be inserted here -->
+                        <div class="preview-placeholder">
+                            <div class="document-icon">📄</div>
+                            <p id="documentName">Document Preview</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Output Section -->
+            <div class="results-output-section">
+                <div class="output-header">
+                    <div class="output-tabs">
+                        <button class="output-tab active" data-tab="preview" id="previewTabBtn">Preview</button>
+                        <button class="output-tab" data-tab="raw" id="rawTabBtn">Raw</button>
+                    </div>
+                    <div class="output-actions">
+                        <button class="action-btn" id="copyBtn" title="Copy">
+                            <span>📋</span>
+                        </button>
+                        <button class="action-btn" id="downloadBtn" title="Download">
+                            <span>⬇️</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="output-content">
+                    <div class="output-panel active" id="previewPanel">
+                        <div class="page-header">
+                            <h2>Page 1</h2>
+                        </div>
+                        <div class="extracted-content" id="extractedContent">
+                            <!-- Extracted content will be inserted here -->
+                        </div>
+                    </div>
+                    
+                    <div class="output-panel" id="rawPanel">
+                        <pre class="raw-output" id="rawOutput"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h3>Processing Document</h3>
+            <p id="loadingText">Analyzing your document...</p>
+        </div>
+    </div>
+
+    <!-- Error Modal -->
+    <div class="modal" id="errorModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Error</h3>
+                <button class="modal-close" id="errorModalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="errorMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="errorModalOk">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="{{ url_for('static_files', filename='script.js') }}"></script>
+    <script>
+        // Initialize the DocStrange app
+        window.addEventListener('DOMContentLoaded', function() {
+            // Initialize format selection
+            const formatCards = document.querySelectorAll('.format-card');
+            let selectedFormat = 'markdown';
+            
+            formatCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    // Remove selected class from all cards
+                    formatCards.forEach(c => c.classList.remove('selected'));
+                    // Add selected class to clicked card
+                    this.classList.add('selected');
+                    selectedFormat = this.dataset.format;
+                });
+            });
+            
+            // Handle upload area click
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            
+            uploadArea.addEventListener('click', function() {
+                fileInput.click();
+            });
+            
+            // Handle file selection
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    updateUploadAreaWithFile(file);
+                }
+            });
+
+            function updateUploadAreaWithFile(file) {
+                const uploadIcon = document.querySelector('.upload-icon-new');
+                const uploadText = document.querySelector('.upload-text-new');
+                
+                if (uploadIcon && uploadText) {
+                    // Update icon to show document
+                    uploadIcon.innerHTML = `
+                        <svg width="24" height="24" fill="#10b981" viewBox="0 0 24 24">
+                            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                    `;
+                    
+                    // Update text with file info
+                    const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+                    uploadText.innerHTML = `
+                        <strong>Selected: ${file.name}</strong><br>
+                        <span style="color: #6b7280; font-size: 14px;">${fileSize} MB • Ready to process</span>
+                    `;
+                    
+                    // Add a subtle animation
+                    uploadText.style.transition = 'all 0.3s ease';
+                    uploadIcon.style.transition = 'all 0.3s ease';
+                }
+            }
+            
+            function updateDocumentPreview(metadata, file) {
+                const documentPreview = document.getElementById('documentPreview');
+                const fileType = metadata.file_type.toLowerCase();
+                
+                if (['.jpg', '.jpeg', '.png', '.bmp', '.tiff'].includes(fileType)) {
+                    // Image preview
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        documentPreview.innerHTML = `
+                            <img src="${e.target.result}" 
+                                 alt="${metadata.file_name}" 
+                                 style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;">
+                        `;
+                    };
+                    reader.readAsDataURL(file);
+                } else if (fileType === '.txt' || fileType === '.csv') {
+                    // Text file preview
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const content = e.target.result.substring(0, 1000); // First 1000 chars
+                        documentPreview.innerHTML = `
+                            <div style="width: 100%; height: 100%; overflow: auto; padding: 16px; background: white; border: 1px solid #e5e7eb; border-radius: 8px;">
+                                <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 12px; margin: 0;">${content}${e.target.result.length > 1000 ? '...' : ''}</pre>
+                            </div>
+                        `;
+                    };
+                    reader.readAsText(file);
+                } else {
+                    // Default preview for other file types (PDF, DOCX, etc.)
+                    const iconMap = {
+                        '.pdf': '📄',
+                        '.docx': '📝',
+                        '.doc': '📝',
+                        '.xlsx': '📊',
+                        '.xls': '📊', 
+                        '.pptx': '📽️',
+                        '.ppt': '📽️',
+                        '.html': '🌐'
+                    };
+                    
+                    const icon = iconMap[fileType] || '📄';
+                    const sizeInMB = (metadata.file_size / (1024 * 1024)).toFixed(2);
+                    
+                    documentPreview.innerHTML = `
+                        <div class="preview-placeholder">
+                            <div class="document-icon" style="font-size: 64px; margin-bottom: 16px;">${icon}</div>
+                            <p style="margin: 0; font-weight: 600; color: #1f2937;">${metadata.file_name}</p>
+                            <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 14px;">${sizeInMB} MB • ${metadata.pages_processed} page${metadata.pages_processed > 1 ? 's' : ''}</p>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Handle extract button
+            const extractBtn = document.getElementById('extractBtn');
+            extractBtn.addEventListener('click', function() {
+                if (fileInput.files.length > 0) {
+                    // Show responsive two-pane view immediately
+                    showResponsiveTwoPaneView(fileInput.files[0]);
+                    // Then start processing
+                    processFile(fileInput.files[0], selectedFormat);
+                } else {
+                    alert('Please select a file first');
+                }
+            });
+            
+            function showResponsiveTwoPaneView(file) {
+                // Shrink left pane and show right pane
+                document.getElementById('leftPane').classList.add('with-results');
+                document.getElementById('rightPane').classList.add('active');
+                
+                // Show document preview in left pane
+                updateLeftPanePreview(file);
+                
+                // Update right pane metadata immediately
+                document.getElementById('fileTypeDisplay').textContent = `Type: ${('.' + file.name.split('.').pop().toLowerCase())}`;
+                document.getElementById('pagesDisplay').textContent = `Pages: 1`;
+                document.getElementById('timeDisplay').textContent = `Time: -`;
+                document.getElementById('pageTitle').textContent = `Processing...`;
+            }
+            
+            function updateLeftPanePreview(file) {
+                const preview = document.getElementById('leftPanePreview');
+                const content = document.getElementById('leftPanePreviewContent');
+                
+                const fileType = '.' + file.name.split('.').pop().toLowerCase();
+                const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+                
+                if (['.jpg', '.jpeg', '.png', '.bmp', '.tiff'].includes(fileType)) {
+                    // Image preview
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        content.innerHTML = `
+                            <img src="${e.target.result}" 
+                                 alt="${file.name}" 
+                                 style="max-width: 100%; height: 80px; object-fit: cover; border-radius: 4px;">
+                            <p style="margin: 8px 0 0 0; font-size: 11px;">${file.name} (${fileSize} MB)</p>
+                        `;
+                    };
+                    reader.readAsDataURL(file);
+                } else if (fileType === '.txt' || fileType === '.csv') {
+                    // Text file preview
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const text = e.target.result.substring(0, 200);
+                        content.innerHTML = `
+                            <div style="font-family: monospace; font-size: 11px; color: #6b7280; white-space: pre-wrap;">${text}${e.target.result.length > 200 ? '...' : ''}</div>
+                            <p style="margin: 8px 0 0 0; font-size: 11px;">${file.name} (${fileSize} MB)</p>
+                        `;
+                    };
+                    reader.readAsText(file);
+                } else {
+                    // Other file types
+                    const iconMap = {
+                        '.pdf': '📄', '.docx': '📝', '.doc': '📝', '.xlsx': '📊', 
+                        '.xls': '📊', '.pptx': '📽️', '.ppt': '📽️', '.html': '🌐'
+                    };
+                    const icon = iconMap[fileType] || '📄';
+                    content.innerHTML = `
+                        <div style="text-align: center; padding: 20px;">
+                            <div style="font-size: 32px; margin-bottom: 8px;">${icon}</div>
+                            <p style="margin: 0; font-size: 11px; font-weight: 600;">${file.name}</p>
+                            <p style="margin: 4px 0 0 0; font-size: 10px; color: #6b7280;">${fileSize} MB</p>
+                        </div>
+                    `;
+                }
+                
+                preview.classList.add('active');
+            }
+            
+            function processFile(file, format) {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('output_format', format === 'json' ? 'flat-json' : format);
+                formData.append('processing_mode', 'cloud');
+                
+                // Show loading state
+                extractBtn.textContent = 'Processing...';
+                extractBtn.disabled = true;
+                
+                fetch('/api/extract', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showResults(data);
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Processing failed');
+                })
+                .finally(() => {
+                    extractBtn.textContent = 'Extract Content';
+                    extractBtn.disabled = false;
+                });
+            }
+            
+            function showResults(data) {
+                // Update metadata in right pane
+                document.getElementById('fileTypeDisplay').textContent = `Type: ${data.metadata.file_type}`;
+                document.getElementById('pagesDisplay').textContent = `Pages: ${data.metadata.pages_processed}`;
+                document.getElementById('timeDisplay').textContent = `Time: ${data.metadata.processing_time}s`;
+                
+                // Update page title
+                document.getElementById('pageTitle').textContent = `Extraction Results`;
+                
+                // Populate content
+                const extractedContent = document.getElementById('extractedContent');
+                const rawOutput = document.getElementById('rawOutput');
+                
+                if (data.metadata.output_format === 'json' || data.metadata.output_format === 'flat-json') {
+                    // For JSON, format it nicely in preview and show raw in raw tab
+                    extractedContent.innerHTML = '<pre style="background: #f8f9fa; padding: 16px; border-radius: 8px; overflow: auto;">' + JSON.stringify(JSON.parse(data.content), null, 2) + '</pre>';
+                } else if (data.metadata.output_format === 'html') {
+                    // Render HTML directly in preview
+                    extractedContent.innerHTML = data.content;
+                } else if (data.metadata.output_format === 'markdown') {
+                    // Render markdown as HTML in preview using marked.js
+                    if (typeof marked !== 'undefined') {
+                        extractedContent.innerHTML = marked.parse(data.content);
+                    } else {
+                        extractedContent.innerHTML = data.content.replace(/\n/g, '<br>');
+                    }
+                } else {
+                    // For other formats, just show as formatted text
+                    extractedContent.innerHTML = '<pre style="white-space: pre-wrap; font-family: inherit;">' + data.content + '</pre>';
+                }
+                
+                rawOutput.textContent = data.content;
+                
+                // Set up tab switching
+                setupResultsTabs();
+            }
+            
+            function setupResultsTabs() {
+                const tabs = document.querySelectorAll('.output-tab');
+                const panels = document.querySelectorAll('.output-panel');
+                
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        const targetTab = tab.dataset.tab;
+                        
+                        // Remove active class from all tabs and panels
+                        tabs.forEach(t => t.classList.remove('active'));
+                        panels.forEach(p => p.classList.remove('active'));
+                        
+                        // Add active class to clicked tab and corresponding panel
+                        tab.classList.add('active');
+                        if (targetTab === 'preview') {
+                            document.getElementById('previewPanel').classList.add('active');
+                        } else if (targetTab === 'raw') {
+                            document.getElementById('rawPanel').classList.add('active');
+                        }
+                    });
+                });
+            }
+            
+            // Handle download button
+            document.getElementById('downloadBtn').addEventListener('click', function() {
+                const rawContent = document.getElementById('rawOutput').textContent;
+                if (rawContent && rawContent !== 'Processing...') {
+                    const blob = new Blob([rawContent], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'extracted-content.txt';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } else {
+                    alert('No content available to download');
+                }
+            });
+            
+            // Handle new file upload (reset to single pane)
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.upload-section-new') && document.getElementById('rightPane').classList.contains('active')) {
+                    // Reset to single pane view
+                    document.getElementById('leftPane').classList.remove('with-results');
+                    document.getElementById('rightPane').classList.remove('active');
+                    document.getElementById('leftPanePreview').classList.remove('active');
+                    
+                    // Clear file input
+                    fileInput.value = '';
+                    
+                    // Reset upload area to default state
+                    const uploadIcon = document.querySelector('.upload-icon-new');
+                    const uploadText = document.querySelector('.upload-text-new');
+                    if (uploadIcon && uploadText) {
+                        uploadIcon.innerHTML = `
+                            <svg width="24" height="24" fill="#9ca3af" viewBox="0 0 24 24">
+                                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                        `;
+                        uploadText.textContent = 'Drop your document here or browse files';
+                    }
+                }
+                
+                // Handle copy button
+                if (e.target.id === 'copyBtn' || e.target.closest('#copyBtn')) {
+                    const rawOutput = document.getElementById('rawOutput');
+                    const copyBtn = document.getElementById('copyBtn');
+                    
+                    if (rawOutput.textContent && rawOutput.textContent !== 'Processing...') {
+                        navigator.clipboard.writeText(rawOutput.textContent).then(() => {
+                            // Show feedback
+                            const originalText = copyBtn.innerHTML;
+                            copyBtn.innerHTML = '<span>✅</span>';
+                            copyBtn.style.backgroundColor = '#10b981';
+                            
+                            setTimeout(() => {
+                                copyBtn.innerHTML = originalText;
+                                copyBtn.style.backgroundColor = '';
+                            }, 2000);
+                        }).catch(() => {
+                            alert('Failed to copy content');
+                        });
+                    } else {
+                        alert('No content available to copy');
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

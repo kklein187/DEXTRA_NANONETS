@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "docstrange": {
+      "command": "/Users/prathameshjuvatkar/.pyenv/shims/python3",
+      "args": ["-m", "mcp_server_module"],
+      "env": {
+        "PYTHONPATH": "/Users/prathameshjuvatkar/workspace/docstrange"
+      }
+    }
+  }
+}
