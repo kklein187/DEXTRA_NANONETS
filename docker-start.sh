@@ -95,29 +95,32 @@ case $MODE in
         ;;
     gpu|2)
         # Check for NVIDIA GPU
+        echo ""
         if docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi &> /dev/null; then
-            echo ""
             echo "🎮 GPU detected! Starting DocStrange in GPU mode..."
-            docker-compose --profile gpu up -d docstrange-gpu
-            
-            echo ""
-            echo "✅ DocStrange is starting up!"
-            echo "🌐 Web interface: http://localhost:8001"
-            echo "📊 Health check: http://localhost:8001/api/health"
-            echo ""
-            echo "⚠️  First startup may take 5-10 minutes to download GPU models"
-            echo ""
-            echo "View logs with: docker-compose logs -f docstrange-gpu"
-            echo "Stop with: docker-compose --profile gpu down"
         else
+            echo "⚠️  WARNING: GPU not detected or nvidia-docker not installed"
+            echo "Container will start but GPU acceleration may not work."
             echo ""
-            echo "❌ GPU not detected or nvidia-docker not installed"
-            echo "Please ensure:"
+            echo "To enable GPU support, ensure:"
             echo "  1. You have an NVIDIA GPU"
             echo "  2. NVIDIA drivers are installed"
             echo "  3. nvidia-docker is installed: https://github.com/NVIDIA/nvidia-docker"
-            exit 1
+            echo ""
+            echo "Starting anyway..."
         fi
+        
+        docker-compose --profile gpu up -d docstrange-gpu
+        
+        echo ""
+        echo "✅ DocStrange is starting up!"
+        echo "🌐 Web interface: http://localhost:8001"
+        echo "📊 Health check: http://localhost:8001/api/health"
+        echo ""
+        echo "⚠️  First startup may take 5-10 minutes to download GPU models"
+        echo ""
+        echo "View logs with: docker-compose logs -f docstrange-gpu"
+        echo "Stop with: docker-compose --profile gpu down"
         ;;
     both|3)
         echo ""
